@@ -1,5 +1,8 @@
 import sys
 
+def sign(x):
+    return 1 if x >= 0 else -1
+
 class Board:
     def __init__(self, f=None, b=None):
         if f:
@@ -18,15 +21,12 @@ class Board:
             self.M = self.N = len(self.b)
     def __len__(self):
         return self.M * self.N
+    def oob(self, i, j):
+        return i < 0 or j < 0 or i >= self.M or j >= self.N
     def get(self, i, j):
-        if i < 0 or j < 0:
-            return -1
-        if i >= self.M or j >= self.N:
-            return -1
-        return self.b[i][j]
+        return -1 if self.oob(i, j) else self.b[i][j]
     def sign(self, i, j):
-        x = self.get(i, j)
-        return 1 if x > 0 else -1 if x < 0 else 0
+        return sign(self.get(i, j))
     def set(self, i, j, v):
         self.b[i][j] = v
 
