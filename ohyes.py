@@ -33,8 +33,8 @@ class Board:
 def gen_patterns(b, i, j):
     def gen(x, i, j, di, dj):
         if x == 0:
-            return []
-        return [(i+di, j+dj)] + gen(x-1, i+di, j+dj, di, dj)
+            return [(i+di, j+dj, -1)]
+        return [(i+di, j+dj, 1)] + gen(x-1, i+di, j+dj, di, dj)
     def genall(left, up, right, down):
         return gen(left, i, j, -1, 0) + gen(up, i, j, 0, -1) + gen(right, i, j, 1, 0) + gen(down, i, j, 0, 1)
 
@@ -48,17 +48,24 @@ def gen_patterns(b, i, j):
             for right in xrange(n+1):
                 for down in xrange(n+1):
                     if left+up+right+down == n:
-                        p.append(genall(left, up, right, down))
+                        p.append({(i, j): v for i, j, v in genall(left, up, right, down)})
 
     return p
 
 def filter_patterns(b, patterns):
-    def filter_red((i, j)):
-        return b.get(i, j) != -1
+    def filter_ob(((i, j), v)):
+        return v == -1 if b.oob(i, j) else True
+    def filter_red(((i, j), v)):
+        return b.sign(i, j) != -1 if v == 1 else True
+    def filter_all(x):
+        return filter_ob(x) and filter_red(x)
     def all_ok(p):
-        return all(map(filter_red, p))
+        return all(map(filter_all, p.items()))
 
-    return filter(all_ok, patterns)
+    # keep only the ones that are ok
+    f = filter(all_ok, patterns)
+    # remove the tiles that are out of bounds
+    return [{(i, j): v for (i, j), v in p.items() if not b.oob(i, j)} for p in f]
 
 def and_patterns(patterns):
     def _and(p, i):
@@ -66,26 +73,29 @@ def and_patterns(patterns):
             return p
         if not p:
             return p
-        px = set(patterns[i])
-        return _and(filter(lambda e: e in px, p), i+1)
+        px = patterns[i]
+        return _and({k: v for k, v in p.items() if k in px and px[k] == v}, i+1)
 
-    return _and(patterns[0], 1) if patterns else []
+    return _and(patterns[0], 1) if patterns else {}
 
 def initial_solution(b):
     return {(i, j): b.sign(i, j) for i in xrange(b.M) for j in xrange(b.N) if b.get(i, j)}
 
 def find_blues(b, s):
-    blues = []
+    found = {}
     for i in xrange(b.M):
         for j in xrange(b.N):
-            blues += and_patterns(filter_patterns(b, gen_patterns(b, i, j)))
-            print "[{}, {}] = {}: {}".format(i, j, b.get(i, j), blues)
-    return {k: 1 for k in blues if k not in s}
+            got = and_patterns(filter_patterns(b, gen_patterns(b, i, j)))
+            print "[{}, {}] = {}: {}".format(i, j, b.get(i, j), got)
+            found.update(got)
+    if found:
+        print "blues: {}".format(found.items())
+    return {k: v for k, v in found.items() if k not in s}
 
 def find_reds(b, s):
     def solved(i, j):
         ps = filter_patterns(b, gen_patterns(b, i, j))
-        return any(map(lambda p: all(map(lambda x: x in s and s[x] == 1, p)), ps))
+        return any(map(lambda p: all(map(lambda (k, v): k in s and s[k] == 1 if v == 1 else True, p.items())), ps))
     def redify(i, j):
         def go(i, j, di, dj):
             if i < 0 or j < 0 or i >= b.M or j >= b.N:
@@ -114,12 +124,6 @@ def astray_reds(b, s):
                 # red island
                 if n == [-1, -1, -1, -1]:
                     astray[(i, j)] = -1
-                # horizontal bridge
-                if n[0] == 1 and n[2] == 1:
-                    pass
-                # vertical bridge
-                if n[1] == 1 and n[3] == 1:
-                    pass
     return astray
 
 def solve(b):
@@ -137,7 +141,7 @@ def solve(b):
         oldlen = len(s)
 
         blues = find_blues(b, s)
-        print "found {} blue dots: {}".format(len(blues), blues.keys())
+        print "found {} blue dots (maybe some are red): {}".format(len(blues), blues)
         s.update(blues)
 
         reds = find_reds(b, s)
@@ -148,17 +152,27 @@ def solve(b):
         print "found {} astray red dots: {}".format(len(astray), astray.keys())
         s.update(astray)
 
-        for (i, j) in reds:
-            b.set(i, j, -1)
-
-        for (i, j) in astray:
-            b.set(i, j, -1)
+        for (i, j), v in s.items():
+            if v == -1:
+                b.set(i, j, -1)
 
     print "solution found!"
     return s
 
-N = int(raw_input())
-for i in xrange(N):
-    b = Board(f = sys.stdin)
-    solve(b)
+def test() :
+    b = Board()
+    ps = gen_patterns(b, 3, 3)
+    for p in ps:
+        print p
+    fps = filter_patterns(b, ps)
+    print fps
+    aps = and_patterns(fps)
+    print aps
 
+def main():
+    N = int(raw_input())
+    for i in xrange(N):
+        b = Board(f = sys.stdin)
+        solve(b)
+
+main()
