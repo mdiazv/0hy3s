@@ -1,4 +1,5 @@
 import sys
+import time
 
 def sign(x):
     return 1 if x >= 0 else -1
@@ -130,14 +131,15 @@ def astray_reds(b, s):
     return astray
 
 def solve(b):
+    start = time.time()
     n = 0
     oldlen = 0
     s = initial_solution(b)
     while len(s) < len(b):
         print "solution @ step {} (len {}): {}".format(n, len(s), s)
         if len(s) == oldlen:
+            end = time.time()
             print "stuck after {} steps".format(n)
-            print "no solution found!"
             return False
 
         n += 1
@@ -159,7 +161,6 @@ def solve(b):
             if v == -1:
                 b.set(i, j, -1)
 
-    print "solution found!"
     return s
 
 def test() :
@@ -176,6 +177,13 @@ def main():
     N = int(raw_input())
     for i in xrange(N):
         b = Board(f = sys.stdin)
-        solve(b)
+
+        start = time.time()
+        s = solve(b)
+        end = time.time()
+
+        report = "" if s else "no "
+        report += "solution found! took {} secs on a size {} board"
+        print report.format(end - start, b.M)
 
 main()
