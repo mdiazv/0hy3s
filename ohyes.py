@@ -52,13 +52,16 @@ def gen_patterns(b, i, j):
 
     return p
 
-def filter_patterns(b, patterns):
+def filter_patterns(b, s, patterns):
     def filter_ob(((i, j), v)):
         return v == -1 if b.oob(i, j) else True
-    def filter_red(((i, j), v)):
-        return b.sign(i, j) != -1 if v == 1 else True
+    def filter_red((k, v)):
+        return s[k] == 1 if v == 1 and k in s else True
+    def filter_blue((k, v)):
+        return s[k] == -1 if v == -1 and k in s else True
     def filter_all(x):
-        return filter_ob(x) and filter_red(x)
+        filters = [filter_ob, filter_red, filter_blue]
+        return all(map(lambda f: f(x), filters))
     def all_ok(p):
         return all(map(filter_all, p.items()))
 
@@ -85,7 +88,7 @@ def find_blues(b, s):
     found = {}
     for i in xrange(b.M):
         for j in xrange(b.N):
-            got = and_patterns(filter_patterns(b, gen_patterns(b, i, j)))
+            got = and_patterns(filter_patterns(b, s, gen_patterns(b, i, j)))
             print "[{}, {}] = {}: {}".format(i, j, b.get(i, j), got)
             found.update(got)
     if found:
@@ -94,7 +97,7 @@ def find_blues(b, s):
 
 def find_reds(b, s):
     def solved(i, j):
-        ps = filter_patterns(b, gen_patterns(b, i, j))
+        ps = filter_patterns(b, s, gen_patterns(b, i, j))
         return any(map(lambda p: all(map(lambda (k, v): k in s and s[k] == 1 if v == 1 else True, p.items())), ps))
     def redify(i, j):
         def go(i, j, di, dj):
@@ -164,7 +167,7 @@ def test() :
     ps = gen_patterns(b, 3, 3)
     for p in ps:
         print p
-    fps = filter_patterns(b, ps)
+    fps = filter_patterns(b, {}, ps)
     print fps
     aps = and_patterns(fps)
     print aps
