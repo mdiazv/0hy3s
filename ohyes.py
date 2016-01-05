@@ -39,17 +39,15 @@ def gen_patterns(b, i, j):
     def genall(left, up, right, down):
         return gen(left, i, j, -1, 0) + gen(up, i, j, 0, -1) + gen(right, i, j, 1, 0) + gen(down, i, j, 0, 1)
 
-    n = b.get(i, j)
-    if n < 1:
-        return []
-
     p = []
-    for left in xrange(n+1):
-        for up in xrange(n+1):
-            for right in xrange(n+1):
-                for down in xrange(n+1):
-                    if left+up+right+down == n:
-                        p.append({(i, j): v for i, j, v in genall(left, up, right, down)})
+    n = b.get(i, j)
+    if n > 0:
+        for left in xrange(n+1):
+            for up in xrange(n+1):
+                for right in xrange(n+1):
+                    for down in xrange(n+1):
+                        if left+up+right+down == n:
+                            p.append({(i, j): v for i, j, v in genall(left, up, right, down)})
 
     return p
 
@@ -61,8 +59,7 @@ def filter_patterns(b, s, patterns):
     def filter_blue((k, v)):
         return s[k] == -1 if v == -1 and k in s else True
     def filter_all(x):
-        filters = [filter_ob, filter_red, filter_blue]
-        return all(map(lambda f: f(x), filters))
+        return filter_ob(x) and filter_red(x) and filter_blue(x)
     def all_ok(p):
         return all(map(filter_all, p.items()))
 
@@ -85,20 +82,29 @@ def and_patterns(patterns):
 def initial_solution(b):
     return {(i, j): b.sign(i, j) for i in xrange(b.M) for j in xrange(b.N) if b.get(i, j)}
 
-def find_blues(b, s):
+class PatternCache:
+    def __init__(self, b):
+        self.pc = {}
+    def patterns(self, b, s, i, j):
+        if (i, j) not in self.pc:
+            self.pc[(i, j)] = gen_patterns(b, i, j)
+        self.pc[(i, j)] = filter_patterns(b, s, self.pc[(i, j)])
+        return self.pc[(i, j)]
+
+def find_blues(b, s, pc):
     found = {}
     for i in xrange(b.M):
         for j in xrange(b.N):
-            got = and_patterns(filter_patterns(b, s, gen_patterns(b, i, j)))
+            got = and_patterns(pc.patterns(b, s, i, j))
             print "[{}, {}] = {}: {}".format(i, j, b.get(i, j), got)
             found.update(got)
     if found:
         print "blues: {}".format(found.items())
     return {k: v for k, v in found.items() if k not in s}
 
-def find_reds(b, s):
+def find_reds(b, s, pc):
     def solved(i, j):
-        ps = filter_patterns(b, s, gen_patterns(b, i, j))
+        ps = pc.patterns(b, s, i, j)
         return any(map(lambda p: all(map(lambda (k, v): k in s and s[k] == 1 if v == 1 else True, p.items())), ps))
     def redify(i, j):
         def go(i, j, di, dj):
@@ -135,6 +141,7 @@ def solve(b):
     n = 0
     oldlen = 0
     s = initial_solution(b)
+    pc = PatternCache(b)
     while len(s) < len(b):
         print "solution @ step {} (len {}): {}".format(n, len(s), s)
         if len(s) == oldlen:
@@ -145,11 +152,11 @@ def solve(b):
         n += 1
         oldlen = len(s)
 
-        blues = find_blues(b, s)
+        blues = find_blues(b, s, pc)
         print "found {} blue dots (maybe some are red): {}".format(len(blues), blues)
         s.update(blues)
 
-        reds = find_reds(b, s)
+        reds = find_reds(b, s, pc)
         print "found {} red dots: {}".format(len(reds), reds.keys())
         s.update(reds)
 
